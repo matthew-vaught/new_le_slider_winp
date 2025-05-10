@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>NBA Height Trends Analysis</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- This is a simple wrapper that loads the existing visualization in a full-page iframe -->
+    <iframe id="mainFrame" src="nba_height_trends_interactive.html"></iframe>
+    
+    <script>
+        // This script adds tap functionality to the visualization
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('mainFrame');
+            
+            iframe.addEventListener('load', function() {
+                try {
+                    // Access the iframe's document
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    
+                    // Remove any red boxes
+                    let redBoxRemover = setInterval(function() {
+                        const allDivs = iframeDoc.querySelectorAll('div');
+                        let foundRedBoxes = false;
+                        
+                        allDivs.forEach(function(div) {
+                            // Check for divs with red border or background
+                            const style = window.getComputedStyle(div);
+                            if (style.borderColor && (
+                                    style.borderColor.includes('255') || // Red in RGB
+                                    style.borderColor.includes('ff5') || // Various red hex codes
+                                    style.borderColor.includes('e74') || 
+                                    style.borderColor.includes('ff0')
+                                )) {
+                                div.style.display = 'none';
+                                foundRedBoxes = true;
+                                console.log("Removed a red-bordered element");
+                            }
+                            
+                            // Also hide any element with the text "Tap on"
+                            if (div.innerText && div.innerText.includes('Tap on')) {
+                                div.style.display = 'none';
+                                console.log("Removed a 'Tap on' element");
+                            }
+                        });
+                        
+                        // Stop checking after 5 seconds or if no more red boxes found
+                        if (!foundRedBoxes) {
+                            clearInterval(redBoxRemover);
+                        }
+                    }, 500);
+                    
+                    // Add our own tap handler to all canvases
+                    const canvases = iframeDoc.querySelectorAll('canvas');
+                    canvases.forEach(function(canvas) {
+                        canvas.addEventListener('click', function(event) {
+                            console.log("Canvas clicked/tapped");
+                        });
+                        
+                        canvas.addEventListener('touchend', function(event) {
+                            console.log("Canvas touched");
+                            // Convert touch to click for better detection
+                            const touch = event.changedTouches[0];
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: iframeDoc.defaultView,
+                                clientX: touch.clientX,
+                                clientY: touch.clientY
+                            });
+                            canvas.dispatchEvent(clickEvent);
+                        });
+                    });
+                } catch (error) {
+                    console.error("Error setting up iframe:", error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
