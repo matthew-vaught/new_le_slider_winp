@@ -46,21 +46,44 @@ filtered_source = ColumnDataSource(data=dict(
 x_padding = (extremes_df['LE_Component_1'].max() - extremes_df['LE_Component_1'].min()) * 0.1
 y_padding = (extremes_df['LE_Component_2'].max() - extremes_df['LE_Component_2'].min()) * 0.1
 
-# Create the figure with tooltips and tap tool included
+# Create the figure with explicit tap and hover tools
 p = figure(
     title='NBA Teams: Trends in Roster Height Distribution (2001-2024)',
     x_axis_label='Component 1 (Avg Height)',
     y_axis_label='Component 2 (Height Variance)',
     width=800,
     height=600,
-    tools='pan,wheel_zoom,box_zoom,reset,save,tap,hover',
+    tools='pan,wheel_zoom,box_zoom,reset,save',
     x_range=(extremes_df['LE_Component_1'].min() - x_padding, extremes_df['LE_Component_1'].max() + x_padding),
-    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding),
+    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding)
+)
+
+# Add HoverTool explicitly with tooltips
+hover_tool = HoverTool(
     tooltips=[
         ('Team', '@Roster'),
         ('Win %', '@Win_Percentage{0.000}')
-    ]
+    ],
+    point_policy='follow_mouse'
 )
+p.add_tools(hover_tool)
+
+# Add TapTool explicitly
+tap_tool = TapTool(
+    callback=CustomJS(args=dict(source=filtered_source), code="""
+        // Get tapped indices
+        const inds = cb_obj.indices;
+        if (inds.length > 0) {
+            const i = inds[0];
+            const team = source.data.Roster[i];
+            const win_pct = source.data.Win_Percentage[i].toFixed(3);
+            
+            // Create and display alert with team info
+            alert("Team: " + team + "\\nWin %: " + win_pct);
+        }
+    """)
+)
+p.add_tools(tap_tool)
 
 # Style improvements
 p.title.text_font_size = "16pt"
