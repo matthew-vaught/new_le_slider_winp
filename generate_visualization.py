@@ -80,36 +80,97 @@ team_info_div = Div(
     height=100
 )
 
-# Add TapTool with callback to update the div
-tap_tool = TapTool(
-    callback=CustomJS(args=dict(source=filtered_source, team_info_div=team_info_div), code="""
-        // Get tapped indices
-        const inds = cb_obj.indices;
-        
-        if (inds.length > 0) {
-            // Get the data for the first selected point
-            const i = inds[0];
-            const team = source.data.Roster[i];
-            const win_pct = (source.data.Win_Percentage[i] * 100).toFixed(1) + '%';
+# Add this code to make the tap functionality work more reliably
+js_code = """
+// Helper function to format win percentage
+function formatWinPct(value) {
+    return (value * 100).toFixed(1) + '%';
+}
+
+// Custom tap handler for iPad and desktop
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait a moment for Bokeh to initialize
+    setTimeout(function() {
+        // Find the main canvas
+        const canvas = document.querySelector('.bk-canvas-events');
+        if (canvas) {
+            console.log("Enhanced tap detection activated");
             
-            // Update the div content with team info
-            team_info_div.text = `
-                <div style="padding: 15px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; margin-top: 10px;">
-                    <h3 style="margin: 5px 0; color: #2c3e50; font-size: 18px; text-align: center;">${team}</h3>
-                    <p style="margin: 10px 0; font-size: 16px; color: #2980b9; text-align: center; font-weight: bold;">Win %: ${win_pct}</p>
-                </div>
-            `;
-        } else {
-            // Reset to default if no point is selected
-            team_info_div.text = `
-                <div style="padding: 10px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; text-align: center;">
-                    <h3 style="margin: 5px 0; color: #2c3e50;">Tap on a team to see details</h3>
-                    <p style="margin: 5px 0; font-size: 12px; color: #7f8c8d;">(Works on iPad and all devices)</p>
-                </div>
-            `;
+            // Add tap/click handlers to canvas
+            canvas.addEventListener('click', function(e) {
+                // The click might select a data point
+                // Wait for Bokeh to process the selection
+                setTimeout(checkSelection, 50);
+            });
+            
+            // For touch devices
+            canvas.addEventListener('touchend', function(e) {
+                // Convert touch to click for better detection
+                const touch = e.changedTouches[0];
+                const clickEvent = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(clickEvent);
+                
+                // Prevent zoom/scroll behaviors
+                e.preventDefault();
+            }, { passive: false });
         }
-    """)
+    }, 500);
+});
+
+// Function to check if a data point was selected
+function checkSelection() {
+    // Get all selected data points
+    const inds = source.selected.indices;
+    
+    if (inds.length > 0) {
+        // Get the data for the first selected point
+        const i = inds[0];
+        const team = source.data.Roster[i];
+        const win_pct = formatWinPct(source.data.Win_Percentage[i]);
+        
+        // Update the div content with team info - make it extra noticeable
+        team_info_div.text = `
+            <div style="padding: 15px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #ff5733; box-shadow: 0 0 10px rgba(0,0,0,0.3); margin-top: 10px; animation: pulse 2s infinite;">
+                <h3 style="margin: 5px 0; color: #2c3e50; font-size: 22px; text-align: center;">${team}</h3>
+                <p style="margin: 10px 0; font-size: 20px; color: #2980b9; text-align: center; font-weight: bold;">Win %: ${win_pct}</p>
+            </div>
+            <style>
+                @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(255, 87, 51, 0.7); }
+                    70% { box-shadow: 0 0 0 10px rgba(255, 87, 51, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(255, 87, 51, 0); }
+                }
+            </style>
+        `;
+        
+        console.log("Team selected:", team, "Win %:", win_pct);
+    } else {
+        // Reset to default if no point is selected
+        team_info_div.text = `
+            <div style="padding: 10px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; text-align: center;">
+                <h3 style="margin: 5px 0; color: #2c3e50;">Tap on a team to see details</h3>
+                <p style="margin: 5px 0; font-size: 12px; color: #7f8c8d;">(Works on iPad and all devices)</p>
+            </div>
+        `;
+    }
+}
+"""
+
+# Add inline JavaScript to the page
+extra_js_div = Div(
+    text=f"<script>{js_code}</script>",
+    width=0,
+    height=0
 )
+
+# Add TapTool (simpler version - our custom JS will handle most functionality)
+tap_tool = TapTool()
 p.add_tools(tap_tool)
 
 # Style improvements
@@ -357,10 +418,11 @@ controls = row(slider, text_input)
 # Create a column with the team info div and averages div
 info_column = column(team_info_div, averages_div)
 
-# Create the final layout
+# Create the final layout - include the extra_js_div to add our custom tap handler
 layout = column(
     controls,
-    row(p, info_column)
+    row(p, info_column),
+    extra_js_div
 )
 
 # Output to static HTML file
