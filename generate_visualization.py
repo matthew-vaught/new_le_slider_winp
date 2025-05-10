@@ -5,6 +5,7 @@ from bokeh.models import ColumnDataSource, HoverTool, TapTool, Slider, CustomJS,
 from bokeh.transform import linear_cmap
 from bokeh.palettes import Viridis256
 from bokeh.layouts import column, row
+from bokeh.events import Tap
 
 # Load data
 le_df = pd.read_csv("../Important DataFrames/le_df.csv")
@@ -46,7 +47,7 @@ filtered_source = ColumnDataSource(data=dict(
 x_padding = (extremes_df['LE_Component_1'].max() - extremes_df['LE_Component_1'].min()) * 0.1
 y_padding = (extremes_df['LE_Component_2'].max() - extremes_df['LE_Component_2'].min()) * 0.1
 
-# Create the figure with explicit tap and hover tools
+# Create a bare minimum plot with just what we need
 p = figure(
     title='NBA Teams: Trends in Roster Height Distribution (2001-2024)',
     x_axis_label='Component 1 (Avg Height)',
@@ -55,123 +56,66 @@ p = figure(
     height=600,
     tools='pan,wheel_zoom,box_zoom,reset,save',
     x_range=(extremes_df['LE_Component_1'].min() - x_padding, extremes_df['LE_Component_1'].max() + x_padding),
-    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding)
-)
-
-# Add HoverTool explicitly with tooltips
-hover_tool = HoverTool(
+    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding),
     tooltips=[
         ('Team', '@Roster'),
         ('Win %', '@Win_Percentage{0.000}')
-    ],
-    point_policy='follow_mouse'
+    ]
 )
-p.add_tools(hover_tool)
 
-# Create a div to display selected team info
+# Create a div to display team info when a team is tapped
 team_info_div = Div(
     text="""
-    <div style="padding: 10px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; text-align: center;">
-        <h3 style="margin: 5px 0; color: #2c3e50;">Tap on a team to see details</h3>
-        <p style="margin: 5px 0; font-size: 12px; color: #7f8c8d;">(Works on iPad and all devices)</p>
+    <div style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; border: 2px solid #3498db; text-align: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">Tap on a team to see details</h3>
     </div>
     """,
     width=350,
     height=100
 )
 
-# Add this code to make the tap functionality work more reliably
-js_code = """
-// Helper function to format win percentage
-function formatWinPct(value) {
-    return (value * 100).toFixed(1) + '%';
-}
-
-// Custom tap handler for iPad and desktop
-document.addEventListener('DOMContentLoaded', function() {
-    // Wait a moment for Bokeh to initialize
-    setTimeout(function() {
-        // Find the main canvas
-        const canvas = document.querySelector('.bk-canvas-events');
-        if (canvas) {
-            console.log("Enhanced tap detection activated");
-            
-            // Add tap/click handlers to canvas
-            canvas.addEventListener('click', function(e) {
-                // The click might select a data point
-                // Wait for Bokeh to process the selection
-                setTimeout(checkSelection, 50);
-            });
-            
-            // For touch devices
-            canvas.addEventListener('touchend', function(e) {
-                // Convert touch to click for better detection
-                const touch = e.changedTouches[0];
-                const clickEvent = new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window,
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                canvas.dispatchEvent(clickEvent);
-                
-                // Prevent zoom/scroll behaviors
-                e.preventDefault();
-            }, { passive: false });
-        }
-    }, 500);
-});
-
-// Function to check if a data point was selected
-function checkSelection() {
-    // Get all selected data points
-    const inds = source.selected.indices;
-    
-    if (inds.length > 0) {
-        // Get the data for the first selected point
-        const i = inds[0];
-        const team = source.data.Roster[i];
-        const win_pct = formatWinPct(source.data.Win_Percentage[i]);
-        
-        // Update the div content with team info - make it extra noticeable
-        team_info_div.text = `
-            <div style="padding: 15px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #ff5733; box-shadow: 0 0 10px rgba(0,0,0,0.3); margin-top: 10px; animation: pulse 2s infinite;">
-                <h3 style="margin: 5px 0; color: #2c3e50; font-size: 22px; text-align: center;">${team}</h3>
-                <p style="margin: 10px 0; font-size: 20px; color: #2980b9; text-align: center; font-weight: bold;">Win %: ${win_pct}</p>
-            </div>
-            <style>
-                @keyframes pulse {
-                    0% { box-shadow: 0 0 0 0 rgba(255, 87, 51, 0.7); }
-                    70% { box-shadow: 0 0 0 10px rgba(255, 87, 51, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(255, 87, 51, 0); }
-                }
-            </style>
-        `;
-        
-        console.log("Team selected:", team, "Win %:", win_pct);
-    } else {
-        // Reset to default if no point is selected
-        team_info_div.text = `
-            <div style="padding: 10px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; text-align: center;">
-                <h3 style="margin: 5px 0; color: #2c3e50;">Tap on a team to see details</h3>
-                <p style="margin: 5px 0; font-size: 12px; color: #7f8c8d;">(Works on iPad and all devices)</p>
-            </div>
-        `;
-    }
-}
-"""
-
-# Add inline JavaScript to the page
-extra_js_div = Div(
-    text=f"<script>{js_code}</script>",
-    width=0,
-    height=0
-)
-
-# Add TapTool (simpler version - our custom JS will handle most functionality)
+# Add TapTool with direct callback
 tap_tool = TapTool()
 p.add_tools(tap_tool)
+
+# Add tap event callback
+p.js_on_event(Tap, CustomJS(args=dict(source=filtered_source, div=team_info_div), code="""
+    // Get the tapped coordinates
+    const x = cb_obj.x;
+    const y = cb_obj.y;
+    
+    // Find the closest point
+    let closest_index = -1;
+    let min_dist = Infinity;
+    
+    for (let i = 0; i < source.data.LE_Component_1.length; i++) {
+        const dx = source.data.LE_Component_1[i] - x;
+        const dy = source.data.LE_Component_2[i] - y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < min_dist) {
+            min_dist = dist;
+            closest_index = i;
+        }
+    }
+    
+    // If we found a close point (within reasonable distance)
+    if (closest_index >= 0 && min_dist < 0.1) {
+        const team = source.data.Roster[closest_index];
+        const win_pct = (source.data.Win_Percentage[closest_index] * 100).toFixed(1) + '%';
+        
+        // Create a high-visibility display of team info
+        div.text = `
+            <div style="padding: 15px; background-color: #fff8e1; border-radius: 8px; border: 3px solid #ff5722; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; margin-bottom: 20px;">
+                <h2 style="margin: 0 0 10px 0; color: #e74c3c; font-size: 24px; font-weight: bold;">${team}</h2>
+                <p style="margin: 0; color: #2980b9; font-size: 20px; font-weight: bold;">Win %: ${win_pct}</p>
+            </div>
+        `;
+        
+        // Create an alert for redundancy (guaranteed to work on iPad)
+        alert("Team: " + team + "\\nWin %: " + win_pct);
+    }
+"""))
 
 # Style improvements
 p.title.text_font_size = "16pt"
@@ -418,11 +362,10 @@ controls = row(slider, text_input)
 # Create a column with the team info div and averages div
 info_column = column(team_info_div, averages_div)
 
-# Create the final layout - include the extra_js_div to add our custom tap handler
+# Create the final layout 
 layout = column(
     controls,
-    row(p, info_column),
-    extra_js_div
+    row(p, info_column)
 )
 
 # Output to static HTML file
