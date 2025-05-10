@@ -63,23 +63,12 @@ p = figure(
     ]
 )
 
-# Create a div to display team info when a team is tapped
-team_info_div = Div(
-    text="""
-    <div style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; border: 2px solid #3498db; text-align: center; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">Tap on a team to see details</h3>
-    </div>
-    """,
-    width=350,
-    height=100
-)
-
-# Add TapTool with direct callback
+# Add TapTool 
 tap_tool = TapTool()
 p.add_tools(tap_tool)
 
-# Add tap event callback
-p.js_on_event(Tap, CustomJS(args=dict(source=filtered_source, div=team_info_div), code="""
+# Add tap event callback - only shows the alert popup
+p.js_on_event(Tap, CustomJS(args=dict(source=filtered_source), code="""
     // Get the tapped coordinates
     const x = cb_obj.x;
     const y = cb_obj.y;
@@ -104,15 +93,7 @@ p.js_on_event(Tap, CustomJS(args=dict(source=filtered_source, div=team_info_div)
         const team = source.data.Roster[closest_index];
         const win_pct = (source.data.Win_Percentage[closest_index] * 100).toFixed(1) + '%';
         
-        // Create a high-visibility display of team info
-        div.text = `
-            <div style="padding: 15px; background-color: #fff8e1; border-radius: 8px; border: 3px solid #ff5722; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; margin-bottom: 20px;">
-                <h2 style="margin: 0 0 10px 0; color: #e74c3c; font-size: 24px; font-weight: bold;">${team}</h2>
-                <p style="margin: 0; color: #2980b9; font-size: 20px; font-weight: bold;">Win %: ${win_pct}</p>
-            </div>
-        `;
-        
-        // Create an alert for redundancy (guaranteed to work on iPad)
+        // Show just the alert popup - simple and works on all devices
         alert("Team: " + team + "\\nWin %: " + win_pct);
     }
 """))
@@ -359,13 +340,10 @@ text_input.js_on_change('value', text_input_callback)
 # Create the layout with slider and text input in the same row
 controls = row(slider, text_input)
 
-# Create a column with the team info div and averages div
-info_column = column(team_info_div, averages_div)
-
-# Create the final layout 
+# Create the final layout
 layout = column(
     controls,
-    row(p, info_column)
+    row(p, averages_div)
 )
 
 # Output to static HTML file
