@@ -68,18 +68,45 @@ hover_tool = HoverTool(
 )
 p.add_tools(hover_tool)
 
-# Add TapTool explicitly
+# Create a div to display selected team info
+team_info_div = Div(
+    text="""
+    <div style="padding: 10px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; text-align: center;">
+        <h3 style="margin: 5px 0; color: #2c3e50;">Tap on a team to see details</h3>
+        <p style="margin: 5px 0; font-size: 12px; color: #7f8c8d;">(Works on iPad and all devices)</p>
+    </div>
+    """,
+    width=350,
+    height=100
+)
+
+# Add TapTool with callback to update the div
 tap_tool = TapTool(
-    callback=CustomJS(args=dict(source=filtered_source), code="""
+    callback=CustomJS(args=dict(source=filtered_source, team_info_div=team_info_div), code="""
         // Get tapped indices
         const inds = cb_obj.indices;
+        
         if (inds.length > 0) {
+            // Get the data for the first selected point
             const i = inds[0];
             const team = source.data.Roster[i];
-            const win_pct = source.data.Win_Percentage[i].toFixed(3);
+            const win_pct = (source.data.Win_Percentage[i] * 100).toFixed(1) + '%';
             
-            // Create and display alert with team info
-            alert("Team: " + team + "\\nWin %: " + win_pct);
+            // Update the div content with team info
+            team_info_div.text = `
+                <div style="padding: 15px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; margin-top: 10px;">
+                    <h3 style="margin: 5px 0; color: #2c3e50; font-size: 18px; text-align: center;">${team}</h3>
+                    <p style="margin: 10px 0; font-size: 16px; color: #2980b9; text-align: center; font-weight: bold;">Win %: ${win_pct}</p>
+                </div>
+            `;
+        } else {
+            // Reset to default if no point is selected
+            team_info_div.text = `
+                <div style="padding: 10px; background-color: #f0f8ff; border-radius: 5px; border: 2px solid #3498db; text-align: center;">
+                    <h3 style="margin: 5px 0; color: #2c3e50;">Tap on a team to see details</h3>
+                    <p style="margin: 5px 0; font-size: 12px; color: #7f8c8d;">(Works on iPad and all devices)</p>
+                </div>
+            `;
         }
     """)
 )
@@ -326,9 +353,14 @@ text_input.js_on_change('value', text_input_callback)
 
 # Create the layout with slider and text input in the same row
 controls = row(slider, text_input)
+
+# Create a column with the team info div and averages div
+info_column = column(team_info_div, averages_div)
+
+# Create the final layout
 layout = column(
     controls,
-    row(p, averages_div)
+    row(p, info_column)
 )
 
 # Output to static HTML file
