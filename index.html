@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <title>NBA Team Height Distribution Analysis</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            touch-action: manipulation; /* Improves tap performance */
+        }
+        
+        /* iPad-specific enhancements */
+        @media (pointer: coarse) {
+            .bk-tool-icon-tap {
+                transform: scale(1.5);  /* Make tap tool icon bigger on touch devices */
+            }
+            .bk-canvas-events {
+                touch-action: none !important;
+                -webkit-tap-highlight-color: transparent !important;
+            }
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2em;
+            margin-top: 0;
+        }
+        
+        .visualization-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+        }
+        
+        .description {
+            padding: 20px;
+            background-color: #f1f8fe;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 30px;
+        }
+        
+        .methodology {
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .quadrant-diagram {
+            width: 400px;
+            height: 300px;
+            margin: 20px auto;
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        
+        .axis {
+            position: absolute;
+            background-color: #333;
+        }
+        
+        .x-axis {
+            width: 90%;
+            height: 2px;
+            left: 5%;
+            top: 50%;
+        }
+        
+        .y-axis {
+            width: 2px;
+            height: 90%;
+            left: 50%;
+            top: 5%;
+        }
+        
+        .axis-label {
+            position: absolute;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .x-label {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .y-label {
+            top: 10px;
+            left: 0;
+            transform: rotate(90deg);
+            transform-origin: left top;
+        }
+        
+        .quad-label {
+            position: absolute;
+            font-weight: bold;
+            padding: 8px;
+            border-radius: 5px;
+            background-color: rgba(255,255,255,0.8);
+        }
+        
+        .trendy-label {
+            bottom: 15px;
+            left: 15px;
+            color: #3498db;
+        }
+        
+        .defying-label {
+            top: 15px;
+            right: 15px;
+            color: #e67e22;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>NBA Team Height Distribution Analysis (2001-2024)</h1>
+        <p class="subtitle">Exploring the relationship between roster construction and team success</p>
+    </header>
+    
+    <div class="description">
+        <h2>About This Visualization</h2>
+        <p>This interactive visualization explores how NBA teams construct their rosters in terms of player heights and how these decisions relate to team success. Each point in the main scatter plot represents a team in a specific season, positioned according to their roster height distribution pattern.</p>
+        
+        <h3>Understanding the Plot:</h3>
+        <ul>
+            <li><strong>Horizontal Axis (Component 1):</strong> Represents the average height of players on the team. Teams further to the right generally have taller players on average.</li>
+            <li><strong>Vertical Axis (Component 2):</strong> Represents the variance in player heights. Teams higher on this axis have more diversity in their players' heights.</li>
+            <li><strong>Colors:</strong> Indicate win percentage, with brighter colors representing more successful teams.</li>
+        </ul>
+        
+        <h3>Trendy vs. Trend-Defying Teams:</h3>
+        <p>For each season, we classify teams based on their position on the graph:</p>
+        <ul>
+            <li><strong>Trendy Teams (Lower Left):</strong> The 5 teams with shorter, more uniform height distributions. These teams typically have players with more similar heights and tend to be shorter overall.</li>
+            <li><strong>Trend-Defying Teams (Upper Right):</strong> The 5 teams with taller, more diverse height distributions. These teams typically have a greater mix of player heights and tend to be taller overall.</li>
+        </ul>
+        
+        <div class="quadrant-diagram">
+            <div class="axis x-axis"></div>
+            <div class="axis y-axis"></div>
+            <div class="axis-label x-label">Average Height →</div>
+            <div class="axis-label y-label">Height Variance →</div>
+            <div class="quad-label trendy-label">Trendy Teams<br>(Shorter, More Uniform)</div>
+            <div class="quad-label defying-label">Trend-Defying Teams<br>(Taller, More Diverse)</div>
+        </div>
+        
+        <p>This visualization allows you to explore whether teams with traditional (shorter, more uniform) or non-traditional (taller, more diverse) roster height distributions tend to perform better across different NBA seasons.</p>
+    </div>
+    
+    <div class="visualization-container">
+        <iframe src="nba_height_trends_interactive.html" title="NBA Height Trends Interactive Visualization"></iframe>
+    </div>
+    
+    <div class="methodology">
+        <h2>Methodology</h2>
+        <h3>Data Collection and Processing</h3>
+        <p>The data for this visualization comes from Basketball-Reference, covering NBA seasons from 2001 to 2024. For each team-season:</p>
+        <ul>
+            <li>Player heights were collected for the top 10 players by minutes played</li>
+            <li>Height distributions were created as histograms</li>
+            <li>Dimensionality reduction using Laplacian Eigenmaps (LE) was applied to position teams in a 2D space based on their height distribution similarity</li>
+            <li>Win percentages were calculated from team records</li>
+        </ul>
+        
+        <h3>Laplacian Eigenmaps and Height Distributions</h3>
+        <p>Laplacian Eigenmaps is a technique that helps us visualize complex data in a simplified way. In this case:</p>
+        <ul>
+            <li>The first component (x-axis) strongly correlates with the average height of the roster, with a correlation of over 95%</li>
+            <li>The second component (y-axis) strongly correlates with the variance in height (diversity), with a correlation of over 90%</li>
+        </ul>
+        
+        <h3>Team Classification</h3>
+        <p>For each season, teams were categorized as:</p>
+        <ul>
+            <li><strong>Trendy Teams:</strong> The 5 teams closest to the lower left of the plot (shortest and most uniform height distributions)</li>
+            <li><strong>Trend-Defying Teams:</strong> The 5 teams closest to the upper right of the plot (tallest and most diverse height distributions)</li>
+        </ul>
+        <p>This analysis helps us understand whether following traditional patterns of roster construction correlates with team success, or if teams that build their rosters differently tend to perform better.</p>
+    </div>
+    
+    <footer>
+        <p>Created with Bokeh and Python | Data source: Basketball-Reference | © 2025</p>
+    </footer>
+
+    <!-- iPad Tap Enhancement Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if the device is an iPad/iPhone
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
+        if (isIOS) {
+            console.log("iOS device detected - enhancing tap functionality");
+            
+            // Wait for the iframe to load
+            const iframe = document.querySelector('iframe');
+            iframe.addEventListener('load', function() {
+                try {
+                    // Access the iframe content
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    
+                    // Find the canvas element
+                    const canvas = iframeDoc.querySelector('.bk-canvas-events');
+                    if (canvas) {
+                        console.log("Canvas element found, enhancing tap");
+                        
+                        // Improve tap behavior
+                        canvas.style.touchAction = 'none';
+                        
+                        // Handle tap events
+                        canvas.addEventListener('touchend', function(e) {
+                            console.log("Tap detected");
+                            
+                            // Prevent default to avoid zoom/scroll behaviors
+                            e.preventDefault();
+                            
+                            // Get the touch coordinates
+                            const touch = e.changedTouches[0];
+                            
+                            // Dispatch a mouse click event at the same position
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window,
+                                clientX: touch.clientX,
+                                clientY: touch.clientY
+                            });
+                            
+                            // Dispatch the click event
+                            touch.target.dispatchEvent(clickEvent);
+                        }, false);
+                    } else {
+                        console.log("Canvas element not found");
+                    }
+                } catch (error) {
+                    console.error("Error accessing iframe content:", error);
+                }
+            });
+        }
+    });
+    </script>
+</body>
+</html>

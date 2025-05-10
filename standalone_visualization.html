@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <title>NBA Team Height Distribution Analysis</title>
+    <!-- Bokeh CSS -->
+    <link href="https://cdn.bokeh.org/bokeh/release/bokeh-2.4.3.min.css" rel="stylesheet">
+    <link href="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.4.3.min.css" rel="stylesheet">
+    <link href="https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.4.3.min.css" rel="stylesheet">
+    
+    <!-- Bokeh JS -->
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.4.3.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.4.3.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.4.3.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            touch-action: manipulation; /* Improves tap performance */
+        }
+        
+        /* iPad-specific enhancements */
+        @media (pointer: coarse) {
+            .bk-tool-icon-tap {
+                transform: scale(1.5);  /* Make tap tool icon bigger on touch devices */
+            }
+            .bk-canvas-events {
+                touch-action: none !important;
+                -webkit-tap-highlight-color: transparent !important;
+            }
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2em;
+            margin-top: 0;
+        }
+        
+        .visualization-container {
+            display: flex;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .main-plot {
+            flex: 3;
+        }
+        
+        .stats-panel {
+            flex: 1;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-left: 20px;
+            border: 1px solid #ddd;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-end;
+        }
+        
+        .season-slider {
+            flex: 1;
+            margin-right: 20px;
+        }
+        
+        .season-input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .season-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .trendy-teams, .untrendy-teams {
+            margin-bottom: 20px;
+        }
+        
+        .trendy-teams h3 {
+            color: #3498db;
+        }
+        
+        .untrendy-teams h3 {
+            color: #e67e22;
+        }
+        
+        .win-percentage {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .trendy-teams .win-percentage {
+            color: #3498db;
+        }
+        
+        .untrendy-teams .win-percentage {
+            color: #e67e22;
+        }
+        
+        .team-list {
+            font-size: 12px;
+            color: #666;
+            height: 60px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .description {
+            padding: 20px;
+            background-color: #f1f8fe;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 30px;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        /* Placeholder for plot */
+        .plot-placeholder {
+            width: 100%;
+            height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            border: 1px dashed #ddd;
+            position: relative;
+        }
+        
+        .quadrant-labels {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .quad-label {
+            position: absolute;
+            color: #666;
+            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        
+        .trendy-label {
+            bottom: 10px;
+            left: 10px;
+            color: #3498db;
+        }
+        
+        .trend-defying-label {
+            top: 10px;
+            right: 10px;
+            color: #e67e22;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>NBA Team Height Distribution Analysis (2001-2024)</h1>
+        <p class="subtitle">Exploring the relationship between roster construction and team success</p>
+    </header>
+    
+    <div class="description">
+        <h3 style="margin-top: 0; color: #333;">About This Visualization</h3>
+        <p>This interactive plot shows NBA teams based on their roster height distributions. Each point represents a team in a given season.</p>
+        
+        <h4>Understanding the Plot:</h4>
+        <ul>
+            <li><strong>Horizontal Axis (Component 1):</strong> Represents the average height of players on the team. Teams further to the right generally have taller players on average.</li>
+            <li><strong>Vertical Axis (Component 2):</strong> Represents the variance in player heights. Teams higher on this axis have more diversity in their players' heights.</li>
+            <li><strong>Colors:</strong> Indicate win percentage, with brighter colors representing more successful teams.</li>
+        </ul>
+        
+        <h4>Trendy vs. Trend-Defying Teams:</h4>
+        <p>For each season, we classify teams based on their position on the graph:</p>
+        <ul>
+            <li><strong>Trendy Teams (Lower Left):</strong> The 5 teams with shorter, more uniform height distributions. These teams typically have players with more similar heights and tend to be shorter overall.</li>
+            <li><strong>Trend-Defying Teams (Upper Right):</strong> The 5 teams with taller, more diverse height distributions. These teams typically have a greater mix of player heights and tend to be taller overall.</li>
+        </ul>
+        
+        <p>Use the slider or enter a season number to explore different NBA seasons and see whether teams with traditional or non-traditional height distributions tend to be more successful.</p>
+    </div>
+    
+    <div class="visualization-container">
+        <div class="main-plot">
+            <div class="controls">
+                <div class="season-slider">
+                    <label for="season-slider" class="season-label">Season: <span id="season-value">2001</span></label>
+                    <input type="range" id="season-slider" min="2001" max="2024" value="2001" step="1" style="width: 100%;">
+                </div>
+                <div>
+                    <label for="season-input" class="season-label">Enter Season:</label>
+                    <input type="number" id="season-input" class="season-input" min="2001" max="2024" value="2001">
+                </div>
+            </div>
+            
+            <div class="plot-placeholder">
+                <div class="quadrant-labels">
+                    <div class="quad-label trendy-label">Trendy Teams<br>(Shorter, More Uniform)</div>
+                    <div class="quad-label trend-defying-label">Trend-Defying Teams<br>(Taller, More Diverse)</div>
+                </div>
+                <div style="text-align: center;">
+                    <h3>To see the interactive visualization:</h3>
+                    <p>Run the provided Python script <code>generate_visualization.py</code> to generate the interactive plot.</p>
+                    <p>Required Python packages: bokeh, pandas, numpy</p>
+                    <pre>pip install -r requirements.txt
+python generate_visualization.py</pre>
+                    <p>Then open <code>nba_height_trends_interactive.html</code> in your browser.</p>
+                    <div style="margin-top: 30px;">
+                        <p style="color: #666; font-style: italic;">Note: This is a placeholder. The actual plot will show teams positioned according to their height distribution patterns, with:</p>
+                        <ul style="color: #666; font-style: italic;">
+                            <li>X-axis: Component 1 (Average Height)</li>
+                            <li>Y-axis: Component 2 (Height Variance)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-panel">
+            <h2 style="text-align: center; color: #333; margin-bottom: 20px;">Season Analysis</h2>
+            
+            <div class="trendy-teams">
+                <h3>Trendy Teams</h3>
+                <div style="background-color: #e8f4f8; padding: 10px; border-radius: 5px; border-left: 4px solid #3498db;">
+                    <p class="win-percentage">45.2%</p>
+                    <p style="font-size: 12px; margin: 0;">Teams with shorter, more uniform rosters</p>
+                </div>
+                <div class="team-list">
+                    2001SAS, 2001SAC, 2001DAL, 2001LAL, 2001MIN
+                </div>
+            </div>
+            
+            <div class="untrendy-teams">
+                <h3>Trend-Defying Teams</h3>
+                <div style="background-color: #fef5e7; padding: 10px; border-radius: 5px; border-left: 4px solid #e67e22;">
+                    <p class="win-percentage">52.8%</p>
+                    <p style="font-size: 12px; margin: 0;">Teams with taller, more diverse rosters</p>
+                </div>
+                <div class="team-list">
+                    2001PHI, 2001MIL, 2001PHO, 2001UTA, 2001POR
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc;">
+                <p style="font-size: 14px; color: #555; text-align: center; font-style: italic;">Win % difference: 7.6%</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="description">
+        <h2>Methodology</h2>
+        <h3>Data Collection and Processing</h3>
+        <p>The data for this visualization comes from Basketball-Reference, covering NBA seasons from 2001 to 2024. For each team-season:</p>
+        <ul>
+            <li>Player heights were collected for the top 10 players by minutes played</li>
+            <li>Height distributions were created as histograms</li>
+            <li>Dimensionality reduction using Laplacian Eigenmaps was applied to position teams in a 2D space based on their height distribution similarity</li>
+            <li>Win percentages were calculated from team records</li>
+        </ul>
+        
+        <h3>Trend Analysis</h3>
+        <p>For each season, teams were categorized as:</p>
+        <ul>
+            <li><strong>Trendy Teams:</strong> The 5 teams closest to the lower left of the plot (shortest and most uniform height distributions)</li>
+            <li><strong>Trend-Defying Teams:</strong> The 5 teams closest to the upper right of the plot (tallest and most diverse height distributions)</li>
+        </ul>
+        <p>This analysis lets us compare whether teams with traditional or non-traditional roster height distributions tend to perform better.</p>
+    </div>
+    
+    <footer>
+        <p>Data source: Basketball-Reference | © 2025</p>
+    </footer>
+    
+    <script>
+        // Slider and input synchronization
+        const slider = document.getElementById('season-slider');
+        const seasonInput = document.getElementById('season-input');
+        const seasonValue = document.getElementById('season-value');
+        
+        slider.addEventListener('input', function() {
+            seasonValue.textContent = this.value;
+            seasonInput.value = this.value;
+        });
+        
+        seasonInput.addEventListener('change', function() {
+            let value = parseInt(this.value);
+            
+            // Validate bounds
+            if (isNaN(value) || value < 2001) {
+                value = 2001;
+            } else if (value > 2024) {
+                value = 2024;
+            }
+            
+            this.value = value;
+            slider.value = value;
+            seasonValue.textContent = value;
+        });
+    </script>
+    
+    <!-- iPad Tap Enhancement Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if the device is an iPad/iPhone
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
+        if (isIOS) {
+            console.log("iOS device detected - enhancing tap functionality");
+            
+            // Find all Bokeh canvas elements
+            const canvases = document.querySelectorAll('.bk-canvas-events');
+            
+            canvases.forEach(function(canvas) {
+                console.log("Canvas element found, enhancing tap");
+                
+                // Improve tap behavior
+                canvas.style.touchAction = 'none';
+                
+                // Handle tap events
+                canvas.addEventListener('touchend', function(e) {
+                    console.log("Tap detected");
+                    
+                    // Prevent default to avoid zoom/scroll behaviors
+                    e.preventDefault();
+                    
+                    // Get the touch coordinates
+                    const touch = e.changedTouches[0];
+                    
+                    // Dispatch a mouse click event at the same position
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    
+                    // Dispatch the click event
+                    touch.target.dispatchEvent(clickEvent);
+                }, false);
+            });
+        }
+    });
+    </script>
+</body>
+</html>
