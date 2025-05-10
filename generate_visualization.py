@@ -311,66 +311,7 @@ layout = column(
 # Output to static HTML file
 output_file("nba_height_trends_interactive.html", title="NBA Height Trends Analysis")
 
-# Read the custom tap HTML file for iPad support
-try:
-    with open("custom_tap.html", "r") as file:
-        custom_tap_html = file.read()
-except:
-    # Fallback if the file doesn't exist
-    custom_tap_html = """
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Add touch event handling for iPad/touch devices
-        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-            console.log("Touch device detected - enabling tap tooltips");
-            
-            // Find all canvases and add touch handlers
-            setTimeout(function() {
-                var canvases = document.querySelectorAll('.bk-canvas-events');
-                canvases.forEach(function(canvas) {
-                    canvas.style.touchAction = 'none';
-                    
-                    // Convert touch to mouse click for tooltips
-                    canvas.addEventListener('touchend', function(e) {
-                        e.preventDefault();
-                        var touch = e.changedTouches[0];
-                        var click = new MouseEvent('click', {
-                            bubbles: true,
-                            cancelable: true,
-                            view: window,
-                            clientX: touch.clientX,
-                            clientY: touch.clientY
-                        });
-                        touch.target.dispatchEvent(click);
-                    });
-                });
-            }, 1000);
-        }
-    });
-    </script>
-    <style>
-    /* Enhanced tooltip styling for touch devices */
-    .bk-tooltip {
-        background-color: white !important;
-        border: 2px solid #3498db !important;
-        border-radius: 5px !important;
-        padding: 8px !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.2) !important;
-    }
-    </style>
-    """
-
-# Save the visualization with custom iPad tap support
-save(layout, resources=None, template="""
-{% extends base %}
-
-{% block postamble %}
-{{ super() }}
-<!-- Custom tap functionality for iPad -->
-%s
-{% endblock %}
-""" % custom_tap_html)
+# Save the visualization with simple HTML output
+save(layout)
 
 print("Visualization saved as 'nba_height_trends_interactive.html'")
