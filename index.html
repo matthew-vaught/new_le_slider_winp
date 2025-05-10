@@ -23,9 +23,25 @@
             .bk-tool-icon-tap {
                 transform: scale(1.5);  /* Make tap tool icon bigger on touch devices */
             }
+            /* Enhanced tap support for iPad */
+            .bk {
+                touch-action: manipulation !important;
+                -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
+            }
             .bk-canvas-events {
                 touch-action: none !important;
-                -webkit-tap-highlight-color: transparent !important;
+            }
+            /* Make tooltips more visible on iPad */
+            .bk-tooltip {
+                background-color: rgba(255, 255, 255, 0.95) !important;
+                border: 2px solid #3498db !important;
+                padding: 10px !important;
+                font-size: 16px !important;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+            }
+            /* Larger points on iPad */
+            .bk-canvas-events circle {
+                r: 8 !important; /* Larger radius */
             }
         }
         
@@ -225,57 +241,43 @@
         <p>Created with Bokeh and Python | Data source: Basketball-Reference | © 2025</p>
     </footer>
 
-    <!-- iPad Tap Enhancement Script -->
+    <!-- Simple iPad Tap Enhancement Script -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Check if the device is an iPad/iPhone
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        // Check if using a touch device
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
-        if (isIOS) {
-            console.log("iOS device detected - enhancing tap functionality");
+        if (isTouchDevice) {
+            console.log("Touch device detected - enhancing visualization");
+            
+            // Add a class to the body to enable our touch-specific CSS
+            document.body.classList.add('touch-device');
             
             // Wait for the iframe to load
             const iframe = document.querySelector('iframe');
             iframe.addEventListener('load', function() {
+                // Send a message to the iframe content to signal it should show tooltips on tap
                 try {
-                    // Access the iframe content
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const message = { action: 'enableTapTooltips' };
+                    iframe.contentWindow.postMessage(message, '*');
                     
-                    // Find the canvas element
-                    const canvas = iframeDoc.querySelector('.bk-canvas-events');
-                    if (canvas) {
-                        console.log("Canvas element found, enhancing tap");
-                        
-                        // Improve tap behavior
-                        canvas.style.touchAction = 'none';
-                        
-                        // Handle tap events
-                        canvas.addEventListener('touchend', function(e) {
-                            console.log("Tap detected");
-                            
-                            // Prevent default to avoid zoom/scroll behaviors
-                            e.preventDefault();
-                            
-                            // Get the touch coordinates
-                            const touch = e.changedTouches[0];
-                            
-                            // Dispatch a mouse click event at the same position
-                            const clickEvent = new MouseEvent('click', {
-                                bubbles: true,
-                                cancelable: true,
-                                view: window,
-                                clientX: touch.clientX,
-                                clientY: touch.clientY
-                            });
-                            
-                            // Dispatch the click event
-                            touch.target.dispatchEvent(clickEvent);
-                        }, false);
-                    } else {
-                        console.log("Canvas element not found");
-                    }
+                    // This just adds a style to make tooltips more prominent on touch devices
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const style = iframeDoc.createElement('style');
+                    style.textContent = `
+                        .bk-tooltip {
+                            background-color: white !important;
+                            border: 2px solid #3498db !important;
+                            border-radius: 5px !important;
+                            padding: 8px !important;
+                            font-size: 16px !important;
+                            font-weight: bold !important;
+                            box-shadow: 0 3px 10px rgba(0,0,0,0.2) !important;
+                        }
+                    `;
+                    iframeDoc.head.appendChild(style);
                 } catch (error) {
-                    console.error("Error accessing iframe content:", error);
+                    console.error("Error enhancing iframe:", error);
                 }
             });
         }

@@ -1,11 +1,10 @@
 import pandas as pd
 import numpy as np
 from bokeh.plotting import figure, output_file, save
-from bokeh.models import ColumnDataSource, HoverTool, TapTool, Slider, CustomJS, ColorBar, Div, TextInput, Tooltip
+from bokeh.models import ColumnDataSource, HoverTool, TapTool, Slider, CustomJS, ColorBar, Div, TextInput, LabelSet
 from bokeh.transform import linear_cmap
 from bokeh.palettes import Viridis256
 from bokeh.layouts import column, row
-from bokeh.events import Tap
 
 # Load data
 le_df = pd.read_csv("../Important DataFrames/le_df.csv")
@@ -47,27 +46,21 @@ filtered_source = ColumnDataSource(data=dict(
 x_padding = (extremes_df['LE_Component_1'].max() - extremes_df['LE_Component_1'].min()) * 0.1
 y_padding = (extremes_df['LE_Component_2'].max() - extremes_df['LE_Component_2'].min()) * 0.1
 
-# Create the tooltip content
-tooltips = [
-    ('Team', '@Roster'),
-    ('Win %', '@Win_Percentage{0.000}')
-]
-
-# Create the figure (without including tap in tools list, we'll add it explicitly)
+# Create the figure with tooltips and tap tool included
 p = figure(
     title='NBA Teams: Trends in Roster Height Distribution (2001-2024)',
     x_axis_label='Component 1 (Avg Height)',
     y_axis_label='Component 2 (Height Variance)',
     width=800,
     height=600,
-    tools='pan,wheel_zoom,box_zoom,reset,save',
+    tools='pan,wheel_zoom,box_zoom,reset,save,tap,hover',
     x_range=(extremes_df['LE_Component_1'].min() - x_padding, extremes_df['LE_Component_1'].max() + x_padding),
-    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding)
+    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding),
+    tooltips=[
+        ('Team', '@Roster'),
+        ('Win %', '@Win_Percentage{0.000}')
+    ]
 )
-
-# Add HoverTool explicitly
-hover_tool = HoverTool(tooltips=tooltips)
-p.add_tools(hover_tool)
 
 # Style improvements
 p.title.text_font_size = "16pt"
@@ -87,89 +80,20 @@ mapper = linear_cmap(
     high=extremes_df['Win_Percentage'].max()
 )
 
-# Create scatter plot with improved selection appearance
+# Create scatter plot with enhanced selection appearance for better tap interaction
 scatter = p.scatter(
     x='LE_Component_1',
     y='LE_Component_2',
     source=filtered_source,
-    size=12,
+    size=14,  # Slightly larger points for easier tapping
     alpha=0.8,
     color=mapper,
     legend_label='NBA Teams',
     selection_color='#ff0000',  # Red outline for selected points
     selection_alpha=1.0,        # Full opacity for selected points
-    selection_line_width=2      # Thicker outline for selected points
+    selection_line_width=3,     # Thicker outline for selected points
+    selection_fill_alpha=1.0    # Full fill opacity when selected
 )
-
-# Add custom tooltip div to show tap results
-tap_div = Div(
-    text="",
-    width=200,
-    height=100,
-    visible=False,
-    style={'position': 'absolute', 'background-color': 'white', 'padding': '5px', 'border': '1px solid black', 'border-radius': '5px', 'pointer-events': 'none'}
-)
-
-# Create a tap callback that will display team info when a point is tapped
-tap_callback = CustomJS(args=dict(source=filtered_source, div=tap_div, plot=p), code="""
-    // Get the tap event coordinates in data space
-    const x = cb_obj.x;
-    const y = cb_obj.y;
-    
-    // Find the nearest point to the tap
-    let closest_index = -1;
-    let min_distance = Infinity;
-    
-    for (let i = 0; i < source.data.LE_Component_1.length; i++) {
-        const dx = source.data.LE_Component_1[i] - x;
-        const dy = source.data.LE_Component_2[i] - y;
-        const distance = Math.sqrt(dx*dx + dy*dy);
-        
-        if (distance < min_distance) {
-            min_distance = distance;
-            closest_index = i;
-        }
-    }
-    
-    // Use a reasonable threshold to determine if we're close enough to a point
-    if (closest_index >= 0 && min_distance < 0.1) {
-        // Get the data for the tapped point
-        const team = source.data.Roster[closest_index];
-        const win_pct = source.data.Win_Percentage[closest_index].toFixed(3);
-        
-        // Update the tooltip content
-        div.text = `<div style="background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 5px rgba(0,0,0,0.3);">
-            <strong style="font-size: 1.1em;">${team}</strong><br>
-            <span>Win %: ${win_pct}</span>
-        </div>`;
-        
-        // Position the tooltip near the tap location
-        // Convert data coordinates to screen coordinates
-        const sx = plot.frame.xscales.default.compute(x);
-        const sy = plot.frame.yscales.default.compute(y);
-        
-        div.style = {
-            'position': 'absolute',
-            'left': (sx + 20) + 'px',
-            'top': (sy - 40) + 'px',
-            'pointer-events': 'none',
-            'z-index': '1000'
-        };
-        
-        // Show the tooltip
-        div.visible = true;
-    } else {
-        // If we didn't tap close to any point, hide the tooltip
-        div.visible = false;
-    }
-""")
-
-# Add TapTool with callback
-tap_tool = TapTool()
-p.add_tools(tap_tool)
-
-# Connect tap events to JavaScript callback
-p.js_on_event(Tap, tap_callback)
 
 # Add color bar
 color_bar = ColorBar(
@@ -381,60 +305,72 @@ text_input.js_on_change('value', text_input_callback)
 controls = row(slider, text_input)
 layout = column(
     controls,
-    row(p, averages_div),
-    tap_div  # Add the tap tooltip div to the layout
+    row(p, averages_div)
 )
 
 # Output to static HTML file
 output_file("nba_height_trends_interactive.html", title="NBA Height Trends Analysis")
 
-# Add specific mobile device handling
-mobile_js = """
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Add a special class to the body when on mobile
-    if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
-        document.body.classList.add('mobile-device');
-        
-        // Add specific handling for iOS devices
-        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            document.body.classList.add('ios-device');
-            console.log("iOS device detected");
+# Read the custom tap HTML file for iPad support
+try:
+    with open("custom_tap.html", "r") as file:
+        custom_tap_html = file.read()
+except:
+    # Fallback if the file doesn't exist
+    custom_tap_html = """
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add touch event handling for iPad/touch devices
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            console.log("Touch device detected - enabling tap tooltips");
             
-            // Improve tap handling for iOS
-            const canvas = document.querySelector('.bk-canvas-events');
-            if (canvas) {
-                canvas.style.touchAction = 'none';
-                
-                // Debug tap events
-                canvas.addEventListener('touchstart', function(e) {
-                    console.log('Touch start event detected');
-                }, { passive: false });
-                
-                canvas.addEventListener('touchend', function(e) {
-                    console.log('Touch end event detected');
-                    // Prevent zoom on double tap
-                    e.preventDefault();
-                }, { passive: false });
-            }
+            // Find all canvases and add touch handlers
+            setTimeout(function() {
+                var canvases = document.querySelectorAll('.bk-canvas-events');
+                canvases.forEach(function(canvas) {
+                    canvas.style.touchAction = 'none';
+                    
+                    // Convert touch to mouse click for tooltips
+                    canvas.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        var touch = e.changedTouches[0];
+                        var click = new MouseEvent('click', {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                            clientX: touch.clientX,
+                            clientY: touch.clientY
+                        });
+                        touch.target.dispatchEvent(click);
+                    });
+                });
+            }, 1000);
         }
+    });
+    </script>
+    <style>
+    /* Enhanced tooltip styling for touch devices */
+    .bk-tooltip {
+        background-color: white !important;
+        border: 2px solid #3498db !important;
+        border-radius: 5px !important;
+        padding: 8px !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2) !important;
     }
-});
-</script>
-<style>
-/* Enhanced styles for mobile devices */
-.mobile-device .bk-tool-icon-tap {
-    transform: scale(1.5);  /* Make the tap tool icon bigger */
-}
+    </style>
+    """
 
-.mobile-device .bk {
-    touch-action: manipulation;  /* Prevents delay on tap events */
-    -webkit-tap-highlight-color: transparent; /* Removes tap highlight */
-}
-</style>
-"""
+# Save the visualization with custom iPad tap support
+save(layout, resources=None, template="""
+{% extends base %}
 
-# Save the standard visualization
-save(layout)
+{% block postamble %}
+{{ super() }}
+<!-- Custom tap functionality for iPad -->
+%s
+{% endblock %}
+""" % custom_tap_html)
 
 print("Visualization saved as 'nba_height_trends_interactive.html'")

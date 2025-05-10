@@ -1,0 +1,73 @@
+<script>
+// Listen for messages from the parent window
+window.addEventListener('message', function(event) {
+    // Check if it's our enableTapTooltips message
+    if (event.data && event.data.action === 'enableTapTooltips') {
+        enableTapTooltips();
+    }
+});
+
+// Function to enable tap-to-show tooltips on iPad/touch devices
+function enableTapTooltips() {
+    // Check if we're on a touch device
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    if (isTouchDevice) {
+        console.log("Enabling tap tooltips for touch device");
+        
+        // Add touch-specific styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .bk-tooltip {
+                background-color: white !important;
+                border: 2px solid #3498db !important;
+                border-radius: 5px !important;
+                padding: 8px !important;
+                font-size: 16px !important;
+                font-weight: bold !important;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.2) !important;
+            }
+            
+            .bk-canvas-events {
+                touch-action: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Find all plot canvases
+        setTimeout(function() {
+            const canvases = document.querySelectorAll('.bk-canvas-events');
+            
+            canvases.forEach(function(canvas) {
+                // Make sure touch events convert to clicks
+                canvas.addEventListener('touchend', function(e) {
+                    // Prevent default behavior
+                    e.preventDefault();
+                    
+                    // Get touch coordinates
+                    const touch = e.changedTouches[0];
+                    
+                    // Create and dispatch a mouse click event
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    
+                    // Dispatch the click on the canvas
+                    touch.target.dispatchEvent(clickEvent);
+                    
+                    console.log("Touch converted to click");
+                }, { passive: false });
+            });
+        }, 1000); // Wait for Bokeh to fully initialize
+    }
+}
+
+// Auto-run on load (in addition to responding to messages)
+document.addEventListener('DOMContentLoaded', function() {
+    enableTapTooltips();
+});
+</script>
