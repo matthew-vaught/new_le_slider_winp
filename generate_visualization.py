@@ -1,11 +1,10 @@
 import pandas as pd
 import numpy as np
 from bokeh.plotting import figure, output_file, save
-from bokeh.models import ColumnDataSource, HoverTool, TapTool, Slider, CustomJS, ColorBar, Div, TextInput, LabelSet
+from bokeh.models import ColumnDataSource, HoverTool, Slider, CustomJS, ColorBar, Div, TextInput
 from bokeh.transform import linear_cmap
 from bokeh.palettes import Viridis256
 from bokeh.layouts import column, row
-from bokeh.events import Tap
 
 # Load data
 le_df = pd.read_csv("../Important DataFrames/le_df.csv")
@@ -63,41 +62,6 @@ p = figure(
     ]
 )
 
-# Add TapTool 
-tap_tool = TapTool()
-p.add_tools(tap_tool)
-
-# Add tap event callback - only shows the alert popup
-p.js_on_event(Tap, CustomJS(args=dict(source=filtered_source), code="""
-    // Get the tapped coordinates
-    const x = cb_obj.x;
-    const y = cb_obj.y;
-    
-    // Find the closest point
-    let closest_index = -1;
-    let min_dist = Infinity;
-    
-    for (let i = 0; i < source.data.LE_Component_1.length; i++) {
-        const dx = source.data.LE_Component_1[i] - x;
-        const dy = source.data.LE_Component_2[i] - y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        if (dist < min_dist) {
-            min_dist = dist;
-            closest_index = i;
-        }
-    }
-    
-    // If we found a close point (within reasonable distance)
-    if (closest_index >= 0 && min_dist < 0.1) {
-        const team = source.data.Roster[closest_index];
-        const win_pct = (source.data.Win_Percentage[closest_index] * 100).toFixed(1) + '%';
-        
-        // Show just the alert popup - simple and works on all devices
-        alert("Team: " + team + "\\nWin %: " + win_pct);
-    }
-"""))
-
 # Style improvements
 p.title.text_font_size = "16pt"
 p.title.align = "center"
@@ -116,19 +80,15 @@ mapper = linear_cmap(
     high=extremes_df['Win_Percentage'].max()
 )
 
-# Create scatter plot with enhanced selection appearance for better tap interaction
+# Create scatter plot
 scatter = p.scatter(
     x='LE_Component_1',
     y='LE_Component_2',
     source=filtered_source,
-    size=14,  # Slightly larger points for easier tapping
+    size=12,
     alpha=0.8,
     color=mapper,
-    legend_label='NBA Teams',
-    selection_color='#ff0000',  # Red outline for selected points
-    selection_alpha=1.0,        # Full opacity for selected points
-    selection_line_width=3,     # Thicker outline for selected points
-    selection_fill_alpha=1.0    # Full fill opacity when selected
+    legend_label='NBA Teams'
 )
 
 # Add color bar

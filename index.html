@@ -2,9 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-touch-fullscreen" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NBA Team Height Distribution Analysis</title>
     <style>
         body {
@@ -15,34 +13,6 @@
             margin: 0 auto;
             padding: 20px;
             background-color: #f9f9f9;
-            touch-action: manipulation; /* Improves tap performance */
-        }
-        
-        /* iPad-specific enhancements */
-        @media (pointer: coarse) {
-            .bk-tool-icon-tap {
-                transform: scale(1.5);  /* Make tap tool icon bigger on touch devices */
-            }
-            /* Enhanced tap support for iPad */
-            .bk {
-                touch-action: manipulation !important;
-                -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
-            }
-            .bk-canvas-events {
-                touch-action: none !important;
-            }
-            /* Make tooltips more visible on iPad */
-            .bk-tooltip {
-                background-color: rgba(255, 255, 255, 0.95) !important;
-                border: 2px solid #3498db !important;
-                padding: 10px !important;
-                font-size: 16px !important;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
-            }
-            /* Larger points on iPad */
-            .bk-canvas-events circle {
-                r: 8 !important; /* Larger radius */
-            }
         }
         
         header {
@@ -240,48 +210,5 @@
     <footer>
         <p>Created with Bokeh and Python | Data source: Basketball-Reference | © 2025</p>
     </footer>
-
-    <!-- Simple iPad Tap Enhancement Script -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Check if using a touch device
-        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        
-        if (isTouchDevice) {
-            console.log("Touch device detected - enhancing visualization");
-            
-            // Add a class to the body to enable our touch-specific CSS
-            document.body.classList.add('touch-device');
-            
-            // Wait for the iframe to load
-            const iframe = document.querySelector('iframe');
-            iframe.addEventListener('load', function() {
-                // Send a message to the iframe content to signal it should show tooltips on tap
-                try {
-                    const message = { action: 'enableTapTooltips' };
-                    iframe.contentWindow.postMessage(message, '*');
-                    
-                    // This just adds a style to make tooltips more prominent on touch devices
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                    const style = iframeDoc.createElement('style');
-                    style.textContent = `
-                        .bk-tooltip {
-                            background-color: white !important;
-                            border: 2px solid #3498db !important;
-                            border-radius: 5px !important;
-                            padding: 8px !important;
-                            font-size: 16px !important;
-                            font-weight: bold !important;
-                            box-shadow: 0 3px 10px rgba(0,0,0,0.2) !important;
-                        }
-                    `;
-                    iframeDoc.head.appendChild(style);
-                } catch (error) {
-                    console.error("Error enhancing iframe:", error);
-                }
-            });
-        }
-    });
-    </script>
 </body>
 </html>
