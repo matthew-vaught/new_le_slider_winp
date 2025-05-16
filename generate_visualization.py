@@ -22,24 +22,31 @@ for season in le_df['Season'].unique():
     trendy_teams.extend(trend)
     untrendy_teams.extend(not_trend)
 
-# Create extremes dataframe
-extremes_df = le_df[le_df['Roster'].isin(trend_teams)]
-extremes_df = pd.merge(extremes_df, trend_wins_df, on='Roster')
+# Create a merged dataframe with all teams
+merged_df = pd.merge(le_df, trend_wins_df, on='Roster')
+
+# Add a team_type column to identify trendy and untrendy teams
+merged_df['team_type'] = 'regular'  # Default type
+for roster in trendy_teams:
+    merged_df.loc[merged_df['Roster'] == roster, 'team_type'] = 'trendy'
+for roster in untrendy_teams:
+    merged_df.loc[merged_df['Roster'] == roster, 'team_type'] = 'untrendy'
 
 # Create a ColumnDataSource for the full dataset
-source = ColumnDataSource(extremes_df)
+source = ColumnDataSource(merged_df)
 
 # Create a ColumnDataSource for filtered data
 # Initialize with the first season's data to ensure points show on load
-first_season = int(extremes_df['Season'].min())
-first_season_data = extremes_df[extremes_df['Season'] == first_season]
+first_season = int(merged_df['Season'].min())
+first_season_data = merged_df[merged_df['Season'] == first_season]
 
 filtered_source = ColumnDataSource(data=dict(
     LE_Component_1=list(first_season_data['LE_Component_1']),
     LE_Component_2=list(first_season_data['LE_Component_2']),
     Win_Percentage=list(first_season_data['Win_Percentage']),
     Roster=list(first_season_data['Roster']),
-    Season=list(first_season_data['Season'])
+    Season=list(first_season_data['Season']),
+    team_type=list(first_season_data['team_type'])
 ))
 
 # Create a separate data source for the highlighted point
@@ -48,12 +55,13 @@ highlight_source = ColumnDataSource(data=dict(
     LE_Component_2=[],
     Win_Percentage=[],
     Roster=[],
-    Season=[]
+    Season=[],
+    team_type=[]
 ))
 
 # Calculate padding for the plot axes
-x_padding = (extremes_df['LE_Component_1'].max() - extremes_df['LE_Component_1'].min()) * 0.1
-y_padding = (extremes_df['LE_Component_2'].max() - extremes_df['LE_Component_2'].min()) * 0.1
+x_padding = (merged_df['LE_Component_1'].max() - merged_df['LE_Component_1'].min()) * 0.1
+y_padding = (merged_df['LE_Component_2'].max() - merged_df['LE_Component_2'].min()) * 0.1
 
 # Create a bare minimum plot with just what we need
 p = figure(
@@ -63,11 +71,12 @@ p = figure(
     width=800,
     height=600,
     tools='pan,wheel_zoom,box_zoom,reset,save,tap',
-    x_range=(extremes_df['LE_Component_1'].min() - x_padding, extremes_df['LE_Component_1'].max() + x_padding),
-    y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding),
+    x_range=(merged_df['LE_Component_1'].min() - x_padding, merged_df['LE_Component_1'].max() + x_padding),
+    y_range=(merged_df['LE_Component_2'].min() - y_padding, merged_df['LE_Component_2'].max() + y_padding),
     tooltips=[
         ('Team', '@Roster'),
-        ('Win %', '@Win_Percentage{0.000}')
+        ('Win %', '@Win_Percentage{0.000}'),
+        ('Type', '@team_type')
     ]
 )
 
@@ -81,12 +90,20 @@ p.yaxis.major_label_text_font_size = "12pt"
 p.grid.grid_line_color = "#dddddd"
 p.grid.grid_line_alpha = 0.6
 
-# Define color mapper for win percentage
-mapper = linear_cmap(
-    field_name='Win_Percentage',
-    palette=Viridis256,
-    low=extremes_df['Win_Percentage'].min(),
-    high=extremes_df['Win_Percentage'].max()
+# Define a color map function based on team_type
+from bokeh.transform import factor_cmap
+
+# Define colors for team types (using the same colors from the win percentage bars)
+team_colors = {
+    'trendy': '#3498db',      # Blue for trendy teams
+    'untrendy': '#e67e22',    # Orange for untrendy teams
+    'regular': '#cccccc'      # Gray for regular teams
+}
+
+color_mapper = factor_cmap(
+    field_name='team_type',
+    palette=[team_colors['trendy'], team_colors['untrendy'], team_colors['regular']],
+    factors=['trendy', 'untrendy', 'regular']
 )
 
 # Create scatter plot with better selection styling
@@ -96,13 +113,13 @@ scatter = p.scatter(
     source=filtered_source,
     size=12,
     alpha=0.8,
-    color=mapper,
-    legend_label='NBA Teams',
-    selection_fill_color=mapper,
+    color=color_mapper,
+    legend_group='team_type',
+    selection_fill_color=color_mapper,
     selection_fill_alpha=0.8,
     selection_line_color="white",
     selection_line_width=0.5,
-    nonselection_fill_color=mapper,
+    nonselection_fill_color=color_mapper,
     nonselection_fill_alpha=0.8,
     nonselection_line_color="white", 
     nonselection_line_width=0.5
@@ -120,16 +137,15 @@ highlight_scatter = p.scatter(
     line_width=2.5
 )
 
-# Add color bar
-color_bar = ColorBar(
-    color_mapper=mapper['transform'],
-    width=10,
-    location=(0, 0),
-    title='Win %',
-    title_text_font_size="12pt",
-    major_label_text_font_size="10pt"
-)
-p.add_layout(color_bar, 'right')
+# Style the legend
+p.legend.title = "Team Types"
+p.legend.title_text_font_size = "12pt"
+p.legend.title_text_font_style = "bold"
+
+# Update legend items with custom labels
+p.legend.items[0].label.value = "Trendy Teams"
+p.legend.items[1].label.value = "Trend-Defying Teams"
+p.legend.items[2].label.value = "Other Teams"
 
 # Style the legend
 p.legend.location = "top_left"
@@ -170,9 +186,9 @@ averages_div = Div(
 
 # Create a slider for season filtering
 slider = Slider(
-    start=int(extremes_df['Season'].min()),
-    end=int(extremes_df['Season'].max()),
-    value=int(extremes_df['Season'].min()),
+    start=int(merged_df['Season'].min()),
+    end=int(merged_df['Season'].max()),
+    value=int(merged_df['Season'].min()),
     step=1,
     title="Season",
     bar_color="#3498db",
@@ -182,7 +198,7 @@ slider = Slider(
 
 # Create a text input for entering a specific season
 text_input = TextInput(
-    value=str(int(extremes_df['Season'].min())),
+    value=str(int(merged_df['Season'].min())),
     title="Enter Season:",
     width=130
 )
@@ -205,7 +221,8 @@ callback = CustomJS(args=dict(
         LE_Component_2: [],
         Win_Percentage: [],
         Roster: [],
-        Season: []
+        Season: [],
+        team_type: []
     };
     
     // Arrays to store win percentages for trendy and untrendy teams
@@ -221,6 +238,7 @@ callback = CustomJS(args=dict(
             filtered_data['Win_Percentage'].push(data['Win_Percentage'][i]);
             filtered_data['Roster'].push(data['Roster'][i]);
             filtered_data['Season'].push(data['Season'][i]);
+            filtered_data['team_type'].push(data['team_type'][i]);
             
             // Check if team is in trendy_teams for this season
             if (trendy_teams.includes(data['Roster'][i])) {
@@ -294,7 +312,8 @@ callback = CustomJS(args=dict(
         'LE_Component_2': [],
         'Win_Percentage': [],
         'Roster': [],
-        'Season': []
+        'Season': [],
+        'team_type': []
     };
     highlight_source.change.emit();
     
@@ -327,8 +346,8 @@ slider.js_on_change('value', callback)
 text_input_callback = CustomJS(args=dict(
     slider=slider,
     text_input=text_input,
-    min_season=int(extremes_df['Season'].min()),
-    max_season=int(extremes_df['Season'].max())
+    min_season=int(merged_df['Season'].min()),
+    max_season=int(merged_df['Season'].max())
 ), code="""
     // Parse entered season
     let season = parseInt(text_input.value);
@@ -377,7 +396,8 @@ tap_callback = CustomJS(
             'LE_Component_2': [source.data.LE_Component_2[ind]],
             'Win_Percentage': [winPct],
             'Roster': [roster],
-            'Season': [season]
+            'Season': [season],
+            'team_type': [source.data.team_type[ind]]
         };
         highlight_source.change.emit();
         
