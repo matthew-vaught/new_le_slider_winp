@@ -90,8 +90,8 @@ p.yaxis.major_label_text_font_size = "12pt"
 p.grid.grid_line_color = "#dddddd"
 p.grid.grid_line_alpha = 0.6
 
-# Define a color map function based on team_type
-from bokeh.transform import factor_cmap
+# Rather than using a factor_cmap, we'll create separate scatter plots for each team type
+from bokeh.models import CDSView, GroupFilter
 
 # Define colors for team types (using the same colors from the win percentage bars)
 team_colors = {
@@ -100,26 +100,64 @@ team_colors = {
     'regular': '#cccccc'      # Gray for regular teams
 }
 
-color_mapper = factor_cmap(
-    field_name='team_type',
-    palette=[team_colors['trendy'], team_colors['untrendy'], team_colors['regular']],
-    factors=['trendy', 'untrendy', 'regular']
-)
+# Create views for each team type
+trendy_view = CDSView(filter=GroupFilter(column_name='team_type', group='trendy'))
+untrendy_view = CDSView(filter=GroupFilter(column_name='team_type', group='untrendy'))
+regular_view = CDSView(filter=GroupFilter(column_name='team_type', group='regular'))
 
-# Create scatter plot with better selection styling
-scatter = p.scatter(
+# Create scatter plots for each team type
+trendy_scatter = p.scatter(
     x='LE_Component_1',
     y='LE_Component_2',
     source=filtered_source,
+    view=trendy_view,
     size=12,
     alpha=0.8,
-    color=color_mapper,
-    legend_group='team_type',
-    selection_fill_color=color_mapper,
+    color=team_colors['trendy'],
+    legend_label='Trendy Teams',
+    selection_fill_color=team_colors['trendy'],
     selection_fill_alpha=0.8,
     selection_line_color="white",
     selection_line_width=0.5,
-    nonselection_fill_color=color_mapper,
+    nonselection_fill_color=team_colors['trendy'],
+    nonselection_fill_alpha=0.8,
+    nonselection_line_color="white", 
+    nonselection_line_width=0.5
+)
+
+untrendy_scatter = p.scatter(
+    x='LE_Component_1',
+    y='LE_Component_2',
+    source=filtered_source,
+    view=untrendy_view,
+    size=12,
+    alpha=0.8,
+    color=team_colors['untrendy'],
+    legend_label='Trend-Defying Teams',
+    selection_fill_color=team_colors['untrendy'],
+    selection_fill_alpha=0.8,
+    selection_line_color="white",
+    selection_line_width=0.5,
+    nonselection_fill_color=team_colors['untrendy'],
+    nonselection_fill_alpha=0.8,
+    nonselection_line_color="white", 
+    nonselection_line_width=0.5
+)
+
+regular_scatter = p.scatter(
+    x='LE_Component_1',
+    y='LE_Component_2',
+    source=filtered_source,
+    view=regular_view,
+    size=12,
+    alpha=0.8,
+    color=team_colors['regular'],
+    legend_label='Other Teams',
+    selection_fill_color=team_colors['regular'],
+    selection_fill_alpha=0.8,
+    selection_line_color="white",
+    selection_line_width=0.5,
+    nonselection_fill_color=team_colors['regular'],
     nonselection_fill_alpha=0.8,
     nonselection_line_color="white", 
     nonselection_line_width=0.5
@@ -137,15 +175,7 @@ highlight_scatter = p.scatter(
     line_width=2.5
 )
 
-# Style the legend
-p.legend.title = "Team Types"
-p.legend.title_text_font_size = "12pt"
-p.legend.title_text_font_style = "bold"
-
-# Update legend items with custom labels
-p.legend.items[0].label.value = "Trendy Teams"
-p.legend.items[1].label.value = "Trend-Defying Teams"
-p.legend.items[2].label.value = "Other Teams"
+# No need for custom labels as we're using the actual legend now
 
 # Style the legend
 p.legend.location = "top_left"
