@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from bokeh.plotting import figure, output_file, save
-from bokeh.models import ColumnDataSource, HoverTool, Slider, CustomJS, ColorBar, Div, TextInput
+from bokeh.models import ColumnDataSource, HoverTool, Slider, CustomJS, ColorBar, Div, TextInput, TapTool
 from bokeh.transform import linear_cmap
 from bokeh.palettes import Viridis256
 from bokeh.layouts import column, row
@@ -42,6 +42,15 @@ filtered_source = ColumnDataSource(data=dict(
     Season=list(first_season_data['Season'])
 ))
 
+# Create a separate data source for the highlighted point
+highlight_source = ColumnDataSource(data=dict(
+    LE_Component_1=[],
+    LE_Component_2=[],
+    Win_Percentage=[],
+    Roster=[],
+    Season=[]
+))
+
 # Calculate padding for the plot axes
 x_padding = (extremes_df['LE_Component_1'].max() - extremes_df['LE_Component_1'].min()) * 0.1
 y_padding = (extremes_df['LE_Component_2'].max() - extremes_df['LE_Component_2'].min()) * 0.1
@@ -53,7 +62,7 @@ p = figure(
     y_axis_label='Component 2 (Height Variance)',
     width=800,
     height=600,
-    tools='pan,wheel_zoom,box_zoom,reset,save',
+    tools='pan,wheel_zoom,box_zoom,reset,save,tap',
     x_range=(extremes_df['LE_Component_1'].min() - x_padding, extremes_df['LE_Component_1'].max() + x_padding),
     y_range=(extremes_df['LE_Component_2'].min() - y_padding, extremes_df['LE_Component_2'].max() + y_padding),
     tooltips=[
@@ -80,7 +89,7 @@ mapper = linear_cmap(
     high=extremes_df['Win_Percentage'].max()
 )
 
-# Create scatter plot
+# Create scatter plot with better selection styling
 scatter = p.scatter(
     x='LE_Component_1',
     y='LE_Component_2',
@@ -88,7 +97,27 @@ scatter = p.scatter(
     size=12,
     alpha=0.8,
     color=mapper,
-    legend_label='NBA Teams'
+    legend_label='NBA Teams',
+    selection_fill_color=mapper,
+    selection_fill_alpha=0.8,
+    selection_line_color="white",
+    selection_line_width=0.5,
+    nonselection_fill_color=mapper,
+    nonselection_fill_alpha=0.8,
+    nonselection_line_color="white", 
+    nonselection_line_width=0.5
+)
+
+# Add a renderer for the highlighted point
+highlight_scatter = p.scatter(
+    x='LE_Component_1',
+    y='LE_Component_2',
+    source=highlight_source,
+    size=15,
+    alpha=1.0,
+    fill_color=None,
+    line_color="red",
+    line_width=2.5
 )
 
 # Add color bar
@@ -162,6 +191,7 @@ text_input = TextInput(
 callback = CustomJS(args=dict(
     source=source,
     filtered_source=filtered_source,
+    highlight_source=highlight_source,
     slider=slider,
     text_input=text_input,
     trendy_teams=trendy_teams,
@@ -258,6 +288,34 @@ callback = CustomJS(args=dict(
     filtered_source.data = filtered_data;
     filtered_source.change.emit();
     
+    // Clear any highlighted point when changing seasons
+    highlight_source.data = {
+        'LE_Component_1': [],
+        'LE_Component_2': [],
+        'Win_Percentage': [],
+        'Roster': [],
+        'Season': []
+    };
+    highlight_source.change.emit();
+    
+    // Remove any selected team info section
+    const lastDivPos = averages_div.text.lastIndexOf('<div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc;">');
+    if (lastDivPos !== -1) {
+        const firstPart = averages_div.text.substring(0, lastDivPos);
+        const lastPart = averages_div.text.substring(lastDivPos);
+        
+        // Check if there's a selected team section
+        const selectedTeamPos = firstPart.lastIndexOf('<div style="margin-top: 20px; padding: 15px; background-color: #f1f8ff; border-radius: 5px; border-left: 4px solid #0366d6;">');
+        
+        if (selectedTeamPos !== -1) {
+            // Find the end of the selected team section
+            const endSelectedTeamPos = firstPart.indexOf('</div>', selectedTeamPos) + 6;
+            
+            // Remove the existing selected team section
+            averages_div.text = firstPart.substring(0, selectedTeamPos) + lastPart;
+        }
+    }
+    
     // Update text input to match slider
     text_input.value = String(season);
 """)
@@ -296,6 +354,87 @@ text_input_callback = CustomJS(args=dict(
 
 # Connect text input to callback
 text_input.js_on_change('value', text_input_callback)
+
+# Create a tap callback to highlight the selected point and show its information
+tap_callback = CustomJS(
+    args=dict(
+        source=filtered_source,
+        highlight_source=highlight_source,
+        averages_div=averages_div
+    ),
+    code="""
+    // Get the index of the tapped point
+    const ind = cb_obj.indices[0];
+    if (ind !== undefined) {
+        // Get the roster, win percentage, and season from the source data
+        const roster = source.data.Roster[ind];
+        const winPct = source.data.Win_Percentage[ind];
+        const season = source.data.Season[ind];
+        
+        // Highlight the selected point by updating the highlight source
+        highlight_source.data = {
+            'LE_Component_1': [source.data.LE_Component_1[ind]],
+            'LE_Component_2': [source.data.LE_Component_2[ind]],
+            'Win_Percentage': [winPct],
+            'Roster': [roster],
+            'Season': [season]
+        };
+        highlight_source.change.emit();
+        
+        // Create a selected team info block
+        const teamInfoHTML = `
+            <div style="margin-top: 20px; padding: 15px; background-color: #f1f8ff; border-radius: 5px; border-left: 4px solid #0366d6;">
+                <h3 style="color: #0366d6; font-size: 16px; margin-bottom: 5px;">Selected Team</h3>
+                <p style="font-size: 18px; font-weight: bold; margin: 0;">${roster}</p>
+                <p style="font-size: 14px; margin: 5px 0 0 0;">Win Percentage: <strong>${(winPct * 100).toFixed(1)}%</strong></p>
+                <p style="font-size: 14px; margin: 5px 0 0 0;">Season: ${season}</p>
+            </div>
+        `;
+        
+        // Find the position to insert the team info - before the last div
+        const lastDivPos = averages_div.text.lastIndexOf('<div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc;">');
+        if (lastDivPos !== -1) {
+            const firstPart = averages_div.text.substring(0, lastDivPos);
+            const lastPart = averages_div.text.substring(lastDivPos);
+            
+            // Check if there's already a selected team section
+            const selectedTeamPos = firstPart.lastIndexOf('<div style="margin-top: 20px; padding: 15px; background-color: #f1f8ff; border-radius: 5px; border-left: 4px solid #0366d6;">');
+            
+            if (selectedTeamPos !== -1) {
+                // Find the end of the selected team section
+                const endSelectedTeamPos = firstPart.indexOf('</div>', selectedTeamPos) + 6;
+                
+                // Replace the existing selected team section
+                averages_div.text = firstPart.substring(0, selectedTeamPos) + teamInfoHTML + firstPart.substring(endSelectedTeamPos) + lastPart;
+            } else {
+                // Add a new selected team section
+                averages_div.text = firstPart + teamInfoHTML + lastPart;
+            }
+        } else {
+            // If we can't find the right position, just append to the end (inside the main div)
+            const endMainDiv = averages_div.text.lastIndexOf('</div>');
+            if (endMainDiv !== -1) {
+                averages_div.text = averages_div.text.substring(0, endMainDiv) + teamInfoHTML + '</div>';
+            }
+        }
+    }
+    """
+)
+
+# Reset selection styling after tap to avoid visual confusion
+reset_selection_js = CustomJS(
+    args=dict(source=filtered_source),
+    code="""
+    // Wait a moment to allow the tap callback to run first, then clear the selection
+    setTimeout(function() {
+        source.selected.indices = [];
+    }, 50);
+    """
+)
+
+# Connect the callbacks to the data source's selection
+filtered_source.selected.js_on_change('indices', tap_callback)
+filtered_source.selected.js_on_change('indices', reset_selection_js)
 
 # Create the layout with slider and text input in the same row
 controls = row(slider, text_input)
